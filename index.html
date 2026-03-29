@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuangYang Time — Timetable & Homework Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar Navigation -->
+        <nav id="sidebar">
+            <div class="logo">
+                <span class="logo-icon">⏰</span>
+                <h1>GY Time</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#" class="nav-link active" data-page="dashboard"><span class="nav-icon">&#9632;</span> Dashboard</a></li>
+                <li><a href="#" class="nav-link" data-page="timetable"><span class="nav-icon">&#9776;</span> Timetable</a></li>
+                <li><a href="#" class="nav-link" data-page="homework"><span class="nav-icon">&#9998;</span> Homework</a></li>
+                <li><a href="#" class="nav-link" data-page="events"><span class="nav-icon">&#9733;</span> Events</a></li>
+                <li><a href="#" class="nav-link" data-page="ai"><span class="nav-icon">&#9883;</span> AI Advisor</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <p>Guangyang Secondary School</p>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main id="content">
+            <!-- Dashboard Page -->
+            <section id="page-dashboard" class="page active">
+                <header class="page-header">
+                    <h2>Dashboard</h2>
+                    <p id="current-datetime"></p>
+                </header>
+                <div class="dashboard-grid">
+                    <div class="card current-period-card">
+                        <h3>Current Period</h3>
+                        <div id="current-period-display">
+                            <span class="big-text" id="current-period-name">--</span>
+                            <span class="sub-text" id="current-period-time">--</span>
+                        </div>
+                        <div id="next-period-info">
+                            <span class="label">Next:</span>
+                            <span id="next-period-name">--</span>
+                        </div>
+                    </div>
+                    <div class="card urgent-hw-card">
+                        <h3>Urgent Homework</h3>
+                        <div id="urgent-homework-list">
+                            <p class="empty-state">No homework yet</p>
+                        </div>
+                    </div>
+                    <div class="card today-schedule-card">
+                        <h3>Today's Schedule</h3>
+                        <div id="today-schedule-list">
+                            <p class="empty-state">Set up your timetable first</p>
+                        </div>
+                    </div>
+                    <div class="card upcoming-events-card">
+                        <h3>Upcoming Events</h3>
+                        <div id="upcoming-events-list">
+                            <p class="empty-state">No upcoming events</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Timetable Page -->
+            <section id="page-timetable" class="page">
+                <header class="page-header">
+                    <h2>Timetable</h2>
+                    <div class="page-actions">
+                        <select id="class-select">
+                            <option value="">Select Class</option>
+                            <optgroup label="Secondary 1">
+                                <option value="1-1">Sec 1-1</option>
+                                <option value="1-2">Sec 1-2</option>
+                                <option value="1-3">Sec 1-3</option>
+                                <option value="1-4">Sec 1-4</option>
+                                <option value="1-5">Sec 1-5</option>
+                                <option value="1-6">Sec 1-6</option>
+                                <option value="1-7">Sec 1-7</option>
+                            </optgroup>
+                            <optgroup label="Secondary 2">
+                                <option value="2-1">Sec 2-1</option>
+                                <option value="2-2">Sec 2-2</option>
+                                <option value="2-3">Sec 2-3</option>
+                                <option value="2-4">Sec 2-4</option>
+                                <option value="2-5">Sec 2-5</option>
+                                <option value="2-6">Sec 2-6</option>
+                                <option value="2-7">Sec 2-7</option>
+                            </optgroup>
+                            <optgroup label="Secondary 3">
+                                <option value="3-1">Sec 3-1</option>
+                                <option value="3-2">Sec 3-2</option>
+                                <option value="3-3">Sec 3-3</option>
+                                <option value="3-4">Sec 3-4</option>
+                                <option value="3-5">Sec 3-5</option>
+                                <option value="3-6">Sec 3-6</option>
+                            </optgroup>
+                            <optgroup label="Secondary 4 & 5">
+                                <option value="4E1">Sec 4E1</option>
+                                <option value="4E2">Sec 4E2</option>
+                                <option value="4E3">Sec 4E3</option>
+                                <option value="4N1">Sec 4N1</option>
+                                <option value="4N2">Sec 4N2</option>
+                                <option value="4N3">Sec 4N3</option>
+                                <option value="4T1">Sec 4T1</option>
+                                <option value="5N1">Sec 5N1</option>
+                            </optgroup>
+                        </select>
+                        <button id="edit-timetable-btn" class="btn btn-primary">Edit Timetable</button>
+                    </div>
+                </header>
+                <div class="timetable-container">
+                    <table id="timetable-grid">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Monday</th>
+                                <th>Tuesday</th>
+                                <th>Wednesday</th>
+                                <th>Thursday</th>
+                                <th>Friday</th>
+                            </tr>
+                        </thead>
+                        <tbody id="timetable-body">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Homework Page -->
+            <section id="page-homework" class="page">
+                <header class="page-header">
+                    <h2>Homework Journal</h2>
+                    <button id="add-homework-btn" class="btn btn-primary">+ Add Homework</button>
+                </header>
+                <div class="homework-filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="overdue">Overdue</button>
+                    <button class="filter-btn" data-filter="today">Due Today</button>
+                    <button class="filter-btn" data-filter="tomorrow">Due Tomorrow</button>
+                    <button class="filter-btn" data-filter="week">This Week</button>
+                    <button class="filter-btn" data-filter="completed">Completed</button>
+                </div>
+                <div id="homework-list">
+                    <p class="empty-state">No homework added yet. Click "+ Add Homework" to get started.</p>
+                </div>
+            </section>
+
+            <!-- Events Page -->
+            <section id="page-events" class="page">
+                <header class="page-header">
+                    <h2>School Events</h2>
+                    <button id="add-event-btn" class="btn btn-primary">+ Add Event</button>
+                </header>
+                <div id="events-calendar">
+                    <div class="calendar-header">
+                        <button id="prev-month" class="btn btn-ghost">&lt;</button>
+                        <h3 id="calendar-month-year"></h3>
+                        <button id="next-month" class="btn btn-ghost">&gt;</button>
+                    </div>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+                <div id="events-list">
+                    <h3>Upcoming Events</h3>
+                    <div id="events-list-items">
+                        <p class="empty-state">No events added yet.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI Advisor Page -->
+            <section id="page-ai" class="page">
+                <header class="page-header">
+                    <h2>AI Homework Advisor</h2>
+                </header>
+                <div class="ai-container">
+                    <div class="ai-info-card card">
+                        <h3>How it works</h3>
+                        <p>The AI advisor analyzes your homework based on due dates, estimated difficulty, subject priority, and time available to suggest the best order to complete your work.</p>
+                    </div>
+                    <button id="get-ai-advice" class="btn btn-primary btn-large">Get Homework Plan</button>
+                    <div id="ai-advice-output" class="card" style="display:none;">
+                        <h3>Your Homework Plan</h3>
+                        <div id="ai-advice-content"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Adding/Editing Homework -->
+    <div id="homework-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="homework-modal-title">Add Homework</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="homework-form">
+                <input type="hidden" id="hw-edit-id">
+                <div class="form-group">
+                    <label for="hw-subject">Subject</label>
+                    <select id="hw-subject" required>
+                        <option value="">Select subject</option>
+                        <option value="English">English</option>
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="Science">Science</option>
+                        <option value="Mother Tongue">Mother Tongue</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Malay">Malay</option>
+                        <option value="Tamil">Tamil</option>
+                        <option value="History">History</option>
+                        <option value="Geography">Geography</option>
+                        <option value="Literature">Literature</option>
+                        <option value="Social Studies">Social Studies</option>
+                        <option value="D&T">D&T</option>
+                        <option value="Art">Art</option>
+                        <option value="Music">Music</option>
+                        <option value="PE">PE</option>
+                        <option value="Computing">Computing</option>
+                        <option value="Physics">Physics</option>
+                        <option value="Chemistry">Chemistry</option>
+                        <option value="Biology">Biology</option>
+                        <option value="A Math">A Math</option>
+                        <option value="E Math">E Math</option>
+                        <option value="POA">POA</option>
+                        <option value="FCE">FCE</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="hw-title">Task</label>
+                    <input type="text" id="hw-title" placeholder="e.g. Worksheet 3, pg 45-50" required>
+                </div>
+                <div class="form-group">
+                    <label for="hw-due">Due Date</label>
+                    <input type="date" id="hw-due" required>
+                </div>
+                <div class="form-group">
+                    <label for="hw-difficulty">Estimated Difficulty</label>
+                    <select id="hw-difficulty">
+                        <option value="1">Easy (~15 min)</option>
+                        <option value="2" selected>Medium (~30 min)</option>
+                        <option value="3">Hard (~1 hour)</option>
+                        <option value="4">Very Hard (~2 hours)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="hw-notes">Notes (optional)</label>
+                    <textarea id="hw-notes" rows="2" placeholder="Any extra details..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-ghost modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Adding Events -->
+    <div id="event-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="event-modal-title">Add Event</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="event-form">
+                <input type="hidden" id="evt-edit-id">
+                <div class="form-group">
+                    <label for="evt-title">Event Name</label>
+                    <input type="text" id="evt-title" placeholder="e.g. Mid-Year Exams" required>
+                </div>
+                <div class="form-group">
+                    <label for="evt-date">Date</label>
+                    <input type="date" id="evt-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="evt-type">Type</label>
+                    <select id="evt-type">
+                        <option value="exam">Exam</option>
+                        <option value="holiday">Holiday</option>
+                        <option value="cca">CCA</option>
+                        <option value="school">School Event</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="evt-notes">Notes (optional)</label>
+                    <textarea id="evt-notes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-ghost modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Timetable Edit Modal -->
+    <div id="timetable-modal" class="modal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3>Edit Timetable</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <p class="modal-description">Click any cell in the timetable to edit. Your timetable is saved automatically.</p>
+            <div class="timetable-edit-container">
+                <table id="timetable-edit-grid">
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>Time</th>
+                            <th>Mon</th>
+                            <th>Tue</th>
+                            <th>Wed</th>
+                            <th>Thu</th>
+                            <th>Fri</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetable-edit-body"></tbody>
+                </table>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="save-timetable-btn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
