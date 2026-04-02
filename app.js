@@ -1,663 +1,694 @@
-// ========== Data & State ==========
+// ========================================================
+// guangyang time — app.js
+// ========================================================
+
+// -- periods --
 const PERIODS = [
-    { label: 'Period 1', start: '07:30', end: '08:00' },
-    { label: 'Period 2', start: '08:00', end: '08:30' },
-    { label: 'Period 3', start: '08:30', end: '09:00' },
-    { label: 'Period 4', start: '09:00', end: '09:30' },
-    { label: 'Period 5', start: '09:30', end: '10:00' },
-    { label: 'Recess', start: '10:00', end: '10:30', isBreak: true },
-    { label: 'Period 6', start: '10:30', end: '11:00' },
-    { label: 'Period 7', start: '11:00', end: '11:30' },
-    { label: 'Period 8', start: '11:30', end: '12:00' },
-    { label: 'Period 9', start: '12:00', end: '12:30' },
-    { label: 'Period 10', start: '12:30', end: '13:00' },
-    { label: 'Period 11', start: '13:00', end: '13:30' },
-    { label: 'Period 12', start: '13:30', end: '14:00' },
-    { label: 'Period 13', start: '14:00', end: '14:30' },
+  { i: 0,  label: '0',  start: '07:30', end: '08:00' },
+  { i: 1,  label: '1',  start: '08:00', end: '08:30' },
+  { i: 2,  label: '2',  start: '08:30', end: '09:00' },
+  { i: 3,  label: '3',  start: '09:00', end: '09:30' },
+  { i: 4,  label: '4',  start: '09:30', end: '10:00' },
+  { i: 5,  label: '5',  start: '10:00', end: '10:30', isBreak: true },
+  { i: 6,  label: '6',  start: '10:30', end: '11:00' },
+  { i: 7,  label: '7',  start: '11:00', end: '11:30' },
+  { i: 8,  label: '8',  start: '11:30', end: '12:00' },
+  { i: 9,  label: '9',  start: '12:00', end: '12:30' },
+  { i: 10, label: '10', start: '12:30', end: '13:00' },
+  { i: 11, label: '11', start: '13:00', end: '13:30' },
+  { i: 12, label: '12', start: '13:30', end: '14:00' },
+  { i: 13, label: '13', start: '14:00', end: '14:30' },
+  { i: 14, label: '14', start: '14:30', end: '15:00' },
+  { i: 15, label: '15', start: '15:00', end: '15:30' },
+  { i: 16, label: '16', start: '15:30', end: '16:00' },
 ];
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const DAY_MAP = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 };
+const DAY_SHORT = ['mon', 'tue', 'wed', 'thu', 'fri'];
+const DAY_IDX = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 };
 
-function loadState() {
-    return {
-        timetable: JSON.parse(localStorage.getItem('gy_timetable') || '{}'),
-        homework: JSON.parse(localStorage.getItem('gy_homework') || '[]'),
-        events: JSON.parse(localStorage.getItem('gy_events') || '[]'),
-        selectedClass: localStorage.getItem('gy_class') || '',
-    };
-}
+const DIFF_LABELS = ['', 'easy ~15m', 'medium ~30m', 'hard ~1h', 'very hard ~2h'];
+const DIFF_MINS = [0, 15, 30, 60, 120];
 
-function saveTimetable(tt) { localStorage.setItem('gy_timetable', JSON.stringify(tt)); }
-function saveHomework(hw) { localStorage.setItem('gy_homework', JSON.stringify(hw)); }
-function saveEvents(ev) { localStorage.setItem('gy_events', JSON.stringify(ev)); }
-function saveClass(cls) { localStorage.setItem('gy_class', cls); }
+const CLASSES = [
+  '1-1','1-2','1-3','1-4','1-5','1-6','1-7',
+  '2-1','2-2','2-3','2-4','2-5','2-6','2-7',
+  '3-1','3-2','3-3','3-4','3-5','3-6',
+  '4E1','4E2','4E3','4N1','4N2','4N3','4T1','5N1'
+];
 
+// -- state --
+let ttData = {};
 let state = loadState();
 
-// ========== Navigation ==========
-document.querySelectorAll('.nav-link').forEach(link => {
-    link.addEventListener('click', e => {
-        e.preventDefault();
-        const page = link.dataset.page;
-        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-        link.classList.add('active');
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById('page-' + page).classList.add('active');
-        if (page === 'dashboard') refreshDashboard();
-        if (page === 'timetable') renderTimetable();
-        if (page === 'homework') renderHomework();
-        if (page === 'events') renderEvents();
-    });
+// -- load timetable data --
+fetch('timetable-data.json')
+  .then(r => r.json())
+  .then(d => { ttData = d; init(); })
+  .catch(() => { init(); });
+
+function loadState() {
+  return {
+    selectedClass: localStorage.getItem('gy_class') || '',
+    weekType: localStorage.getItem('gy_week') || '5day',
+    ttOverrides: JSON.parse(localStorage.getItem('gy_tt_overrides') || '{}'),
+    homework: JSON.parse(localStorage.getItem('gy_homework') || '[]'),
+    events: JSON.parse(localStorage.getItem('gy_events') || '[]'),
+  };
+}
+function save(key, val) { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); }
+
+// -- helpers --
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function toMins(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+
+function fmtDate(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short' }).toLowerCase();
+}
+
+function daysUntil(d) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.ceil((new Date(d + 'T00:00:00') - today) / 86400000);
+}
+
+function urgencyLabel(d) {
+  const n = daysUntil(d);
+  if (n < 0) return 'overdue';
+  if (n === 0) return 'due today';
+  if (n === 1) return 'tomorrow';
+  return n + ' days';
+}
+
+function currentPeriodIdx() {
+  const now = new Date();
+  const m = now.getHours() * 60 + now.getMinutes();
+  for (let i = 0; i < PERIODS.length; i++) {
+    if (m >= toMins(PERIODS[i].start) && m < toMins(PERIODS[i].end)) return i;
+  }
+  return -1;
+}
+
+function getTT(cls, week) {
+  const base = (ttData[cls] && ttData[cls][week]) || {};
+  const overKey = cls + '_' + week;
+  const over = state.ttOverrides[overKey] || {};
+  // merge: overrides take priority
+  const merged = {};
+  for (const day of DAYS) {
+    const baseArr = base[day] || [];
+    const overArr = over[day] || [];
+    merged[day] = [];
+    for (let i = 0; i < 17; i++) {
+      merged[day][i] = (overArr[i] !== undefined && overArr[i] !== '') ? overArr[i] : (baseArr[i] || '');
+    }
+  }
+  return merged;
+}
+
+// -- clock --
+function tickClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  $('#header-clock').textContent = hh + ':' + mm;
+  $('#header-date').textContent = now.toLocaleDateString('en-SG', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  }).toLowerCase();
+}
+
+// ========================
+// navigation
+// ========================
+$$('.tab').forEach(tab => {
+  tab.addEventListener('click', e => {
+    e.preventDefault();
+    $$('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    $$('.page').forEach(p => p.classList.remove('active'));
+    $('#page-' + tab.dataset.page).classList.add('active');
+    refreshPage(tab.dataset.page);
+  });
 });
 
-// ========== Helpers ==========
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
-function formatDate(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short' });
+function refreshPage(name) {
+  if (name === 'now') renderNow();
+  if (name === 'timetable') renderTimetable();
+  if (name === 'homework') renderHomework();
+  if (name === 'events') renderEvents();
 }
 
-function daysUntil(dateStr) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(dateStr + 'T00:00:00');
-    return Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-}
+// ========================
+// now page
+// ========================
+function renderNow() {
+  state = loadState();
+  const now = new Date();
+  const dayIdx = DAY_IDX[now.getDay()];
+  const pIdx = currentPeriodIdx();
+  const tt = getTT(state.selectedClass, state.weekType);
 
-function getUrgency(dateStr) {
-    const d = daysUntil(dateStr);
-    if (d < 0) return { label: 'Overdue', class: 'urgency-overdue' };
-    if (d === 0) return { label: 'Due Today', class: 'urgency-today' };
-    if (d === 1) return { label: 'Tomorrow', class: 'urgency-tomorrow' };
-    if (d <= 5) return { label: `${d} days`, class: 'urgency-soon' };
-    return { label: `${d} days`, class: 'urgency-later' };
-}
+  // hero
+  if (dayIdx === undefined) {
+    $('#now-subject').textContent = 'weekend';
+    $('#now-time').textContent = 'no school today';
+    $('#now-next-subject').textContent = '--';
+    $('#now-next-time').textContent = '';
+  } else if (pIdx === -1) {
+    const m = now.getHours() * 60 + now.getMinutes();
+    if (m < toMins(PERIODS[0].start)) {
+      $('#now-subject').textContent = 'before school';
+      $('#now-time').textContent = 'starts at ' + PERIODS[0].start;
+    } else {
+      $('#now-subject').textContent = 'after school';
+      $('#now-time').textContent = 'school has ended';
+    }
+    $('#now-next-subject').textContent = '--';
+    $('#now-next-time').textContent = '';
+  } else {
+    const p = PERIODS[pIdx];
+    const subj = p.isBreak ? 'recess' : (tt[DAYS[dayIdx]][pIdx] || 'period ' + pIdx);
+    $('#now-subject').textContent = subj || '--';
+    $('#now-time').textContent = p.start + ' – ' + p.end;
+    if (pIdx + 1 < PERIODS.length) {
+      const np = PERIODS[pIdx + 1];
+      const ns = np.isBreak ? 'recess' : (tt[DAYS[dayIdx]][pIdx + 1] || 'period ' + (pIdx + 1));
+      $('#now-next-subject').textContent = ns;
+      $('#now-next-time').textContent = np.start;
+    } else {
+      $('#now-next-subject').textContent = 'end of school';
+      $('#now-next-time').textContent = '';
+    }
+  }
 
-function getSubjectClass(subject) {
-    return 'subj-' + subject.toLowerCase().replace(/[^a-z]/g, '-').replace(/-+/g, '-');
-}
-
-function timeToMinutes(timeStr) {
-    const [h, m] = timeStr.split(':').map(Number);
-    return h * 60 + m;
-}
-
-function getCurrentPeriodIndex() {
-    const now = new Date();
-    const mins = now.getHours() * 60 + now.getMinutes();
+  // today's schedule
+  const schedEl = $('#now-schedule');
+  if (dayIdx === undefined) {
+    schedEl.innerHTML = '<div class="empty">no school today</div>';
+  } else {
+    const dayTT = tt[DAYS[dayIdx]];
+    let html = '';
     for (let i = 0; i < PERIODS.length; i++) {
-        if (mins >= timeToMinutes(PERIODS[i].start) && mins < timeToMinutes(PERIODS[i].end)) {
-            return i;
-        }
+      const p = PERIODS[i];
+      const subj = p.isBreak ? 'recess' : (dayTT[i] || '');
+      if (!subj) continue;
+      const isCurrent = i === pIdx;
+      html += `<div class="sched-row ${isCurrent ? 'is-now' : ''}">
+        <span class="sched-subj">${subj}</span>
+        <span class="sched-time">${p.start}–${p.end}</span>
+      </div>`;
     }
-    return -1;
+    schedEl.innerHTML = html || '<div class="empty">no timetable set</div>';
+  }
+
+  // urgent homework
+  const urgentEl = $('#now-urgent');
+  const pending = state.homework.filter(h => !h.completed).sort((a, b) => daysUntil(a.due) - daysUntil(b.due));
+  if (!pending.length) {
+    urgentEl.innerHTML = '<div class="empty">no pending homework</div>';
+  } else {
+    urgentEl.innerHTML = pending.slice(0, 5).map(h => {
+      return `<div class="urgent-row">
+        <span>${h.subject}: ${h.title}</span>
+        <span class="tag">${urgencyLabel(h.due)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // upcoming events
+  const evtEl = $('#now-events');
+  const upcoming = state.events.filter(e => daysUntil(e.date) >= 0)
+    .sort((a, b) => daysUntil(a.date) - daysUntil(b.date)).slice(0, 4);
+  if (!upcoming.length) {
+    evtEl.innerHTML = '<div class="empty">no upcoming events</div>';
+  } else {
+    evtEl.innerHTML = upcoming.map(e =>
+      `<div class="urgent-row"><span>${e.title}</span><span class="tag">${fmtDate(e.date)}</span></div>`
+    ).join('');
+  }
 }
 
-// ========== Dashboard ==========
-function refreshDashboard() {
-    state = loadState();
-    // Current date/time
-    const now = new Date();
-    document.getElementById('current-datetime').textContent =
-        now.toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) +
-        ' \u2022 ' + now.toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' });
-
-    // Current period
-    const dayIdx = DAY_MAP[now.getDay()];
-    const periodIdx = getCurrentPeriodIndex();
-    const cpName = document.getElementById('current-period-name');
-    const cpTime = document.getElementById('current-period-time');
-    const npName = document.getElementById('next-period-name');
-
-    if (dayIdx === undefined) {
-        cpName.textContent = 'Weekend';
-        cpTime.textContent = 'No school today';
-        npName.textContent = '--';
-    } else if (periodIdx === -1) {
-        const mins = now.getHours() * 60 + now.getMinutes();
-        if (mins < timeToMinutes(PERIODS[0].start)) {
-            cpName.textContent = 'Before School';
-            cpTime.textContent = 'School starts at ' + PERIODS[0].start;
-        } else {
-            cpName.textContent = 'After School';
-            cpTime.textContent = 'School has ended';
-        }
-        npName.textContent = '--';
-    } else {
-        const period = PERIODS[periodIdx];
-        const subject = period.isBreak ? 'Recess' :
-            (state.timetable[dayIdx] && state.timetable[dayIdx][periodIdx]) || period.label;
-        cpName.textContent = subject;
-        cpTime.textContent = period.start + ' - ' + period.end;
-        if (periodIdx + 1 < PERIODS.length) {
-            const next = PERIODS[periodIdx + 1];
-            const nextSubj = next.isBreak ? 'Recess' :
-                (state.timetable[dayIdx] && state.timetable[dayIdx][periodIdx + 1]) || next.label;
-            npName.textContent = nextSubj + ' (' + next.start + ')';
-        } else {
-            npName.textContent = 'End of school';
-        }
-    }
-
-    // Urgent homework
-    const urgentContainer = document.getElementById('urgent-homework-list');
-    const pending = state.homework.filter(h => !h.completed).sort((a, b) => daysUntil(a.due) - daysUntil(b.due));
-    if (pending.length === 0) {
-        urgentContainer.innerHTML = '<p class="empty-state">No pending homework!</p>';
-    } else {
-        const top = pending.slice(0, 4);
-        urgentContainer.innerHTML = top.map(h => {
-            const u = getUrgency(h.due);
-            return `<div class="schedule-item">
-                <span><strong>${h.subject}</strong>: ${h.title}</span>
-                <span class="hw-urgency ${u.class}">${u.label}</span>
-            </div>`;
-        }).join('');
-    }
-
-    // Today's schedule
-    const schedContainer = document.getElementById('today-schedule-list');
-    if (dayIdx === undefined) {
-        schedContainer.innerHTML = '<p class="empty-state">No school today</p>';
-    } else {
-        const dayTT = state.timetable[dayIdx] || {};
-        const items = PERIODS.map((p, i) => {
-            const subj = p.isBreak ? 'Recess' : (dayTT[i] || '--');
-            const isCurrent = i === periodIdx;
-            return `<div class="schedule-item ${isCurrent ? 'now' : ''}">
-                <span>${subj}</span>
-                <span class="time">${p.start} - ${p.end}</span>
-            </div>`;
-        });
-        schedContainer.innerHTML = items.join('');
-    }
-
-    // Upcoming events
-    const evtContainer = document.getElementById('upcoming-events-list');
-    const upcoming = state.events
-        .filter(e => daysUntil(e.date) >= 0)
-        .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))
-        .slice(0, 4);
-    if (upcoming.length === 0) {
-        evtContainer.innerHTML = '<p class="empty-state">No upcoming events</p>';
-    } else {
-        evtContainer.innerHTML = upcoming.map(e =>
-            `<div class="schedule-item">
-                <span><strong>${e.title}</strong></span>
-                <span class="time">${formatDate(e.date)}</span>
-            </div>`
-        ).join('');
-    }
+// ========================
+// timetable page
+// ========================
+function populateClassSelect() {
+  const sel = $('#class-select');
+  sel.innerHTML = '<option value="">select class</option>';
+  const groups = { 'sec 1': [], 'sec 2': [], 'sec 3': [], 'sec 4 & 5': [] };
+  CLASSES.forEach(c => {
+    if (c.startsWith('1-')) groups['sec 1'].push(c);
+    else if (c.startsWith('2-')) groups['sec 2'].push(c);
+    else if (c.startsWith('3-')) groups['sec 3'].push(c);
+    else groups['sec 4 & 5'].push(c);
+  });
+  for (const [g, items] of Object.entries(groups)) {
+    const og = document.createElement('optgroup');
+    og.label = g;
+    items.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; og.appendChild(o); });
+    sel.appendChild(og);
+  }
+  sel.value = state.selectedClass;
 }
 
-// ========== Timetable ==========
 function renderTimetable() {
-    state = loadState();
-    const classSelect = document.getElementById('class-select');
-    classSelect.value = state.selectedClass;
+  state = loadState();
+  const tt = getTT(state.selectedClass, state.weekType);
+  const now = new Date();
+  const dayIdx = DAY_IDX[now.getDay()];
+  const pIdx = currentPeriodIdx();
 
-    const tbody = document.getElementById('timetable-body');
-    const now = new Date();
-    const dayIdx = DAY_MAP[now.getDay()];
-    const periodIdx = getCurrentPeriodIndex();
+  const grid = $('#tt-grid');
+  let html = '<table><thead><tr><th></th>';
+  DAY_SHORT.forEach(d => html += `<th>${d}</th>`);
+  html += '</tr></thead><tbody>';
 
-    tbody.innerHTML = PERIODS.map((p, i) => {
-        const cells = DAYS.map((_, di) => {
-            if (p.isBreak) return `<td class="recess-row">Recess</td>`;
-            const subj = (state.timetable[di] && state.timetable[di][i]) || '--';
-            const isCurrent = di === dayIdx && i === periodIdx;
-            return `<td class="${isCurrent ? 'current-slot' : ''}">${subj}</td>`;
-        }).join('');
-        return `<tr>
-            <td style="font-weight:600; background:var(--bg); white-space:nowrap;">${p.label}<br><small style="color:var(--text-secondary)">${p.start}-${p.end}</small></td>
-            ${cells}
-        </tr>`;
-    }).join('');
+  for (const p of PERIODS) {
+    const isCurrent = p.i === pIdx;
+    const cls = (p.isBreak ? ' is-break' : '') + (isCurrent ? ' is-now' : '');
+    html += `<tr class="${cls}"><td class="time-col">${p.start}</td>`;
+    for (let di = 0; di < 5; di++) {
+      const subj = p.isBreak ? 'recess' : (tt[DAYS[di]][p.i] || '');
+      html += `<td>${subj}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  grid.innerHTML = html;
 }
 
-document.getElementById('class-select').addEventListener('change', e => {
-    state.selectedClass = e.target.value;
-    saveClass(e.target.value);
+$('#class-select').addEventListener('change', e => {
+  state.selectedClass = e.target.value;
+  save('gy_class', e.target.value);
+  renderTimetable();
 });
 
-// Timetable editing
-document.getElementById('edit-timetable-btn').addEventListener('click', () => {
-    state = loadState();
-    const tbody = document.getElementById('timetable-edit-body');
-    tbody.innerHTML = PERIODS.map((p, i) => {
-        if (p.isBreak) {
-            return `<tr>
-                <td class="period-label">${p.label}</td>
-                <td class="period-label">${p.start}-${p.end}</td>
-                ${DAYS.map(() => '<td class="recess-row">Recess</td>').join('')}
-            </tr>`;
-        }
-        const cells = DAYS.map((_, di) => {
-            const val = (state.timetable[di] && state.timetable[di][i]) || '';
-            return `<td><input type="text" value="${val}" data-day="${di}" data-period="${i}" placeholder="--"></td>`;
-        }).join('');
-        return `<tr>
-            <td class="period-label">${p.label}</td>
-            <td class="period-label">${p.start}-${p.end}</td>
-            ${cells}
-        </tr>`;
-    }).join('');
-
-    openModal('timetable-modal');
+$('#week-select').addEventListener('change', e => {
+  state.weekType = e.target.value;
+  save('gy_week', e.target.value);
+  renderTimetable();
 });
 
-document.getElementById('save-timetable-btn').addEventListener('click', () => {
-    const inputs = document.querySelectorAll('#timetable-edit-body input');
-    const tt = { ...state.timetable };
-    inputs.forEach(inp => {
-        const day = inp.dataset.day;
-        const period = inp.dataset.period;
-        if (!tt[day]) tt[day] = {};
-        tt[day][period] = inp.value.trim();
-    });
-    state.timetable = tt;
-    saveTimetable(tt);
-    closeModal('timetable-modal');
-    renderTimetable();
+// timetable edit
+$('#edit-tt-btn').addEventListener('click', () => {
+  state = loadState();
+  const tt = getTT(state.selectedClass, state.weekType);
+  const tbody = $('#tt-edit-body');
+  let html = '';
+  for (const p of PERIODS) {
+    if (p.isBreak) {
+      html += `<tr><td class="td-label">${p.label}</td><td class="td-label">${p.start}</td>`;
+      for (let d = 0; d < 5; d++) html += '<td class="td-label">recess</td>';
+      html += '</tr>';
+      continue;
+    }
+    html += `<tr><td class="td-label">${p.label}</td><td class="td-label">${p.start}</td>`;
+    for (let d = 0; d < 5; d++) {
+      const val = tt[DAYS[d]][p.i] || '';
+      html += `<td><input type="text" value="${val}" data-day="${d}" data-period="${p.i}"></td>`;
+    }
+    html += '</tr>';
+  }
+  tbody.innerHTML = html;
+  openModal('tt-modal');
 });
 
-// ========== Homework ==========
-let hwFilter = 'all';
+$('#save-tt-btn').addEventListener('click', () => {
+  const inputs = $$('#tt-edit-body input');
+  const overKey = state.selectedClass + '_' + state.weekType;
+  if (!state.ttOverrides[overKey]) state.ttOverrides[overKey] = {};
+  const over = state.ttOverrides[overKey];
+  inputs.forEach(inp => {
+    const d = DAYS[inp.dataset.day];
+    const p = parseInt(inp.dataset.period);
+    if (!over[d]) over[d] = [];
+    over[d][p] = inp.value.trim().toLowerCase();
+  });
+  save('gy_tt_overrides', state.ttOverrides);
+  closeModal('tt-modal');
+  renderTimetable();
+});
+
+// ========================
+// homework page
+// ========================
+let hwFilter = 'pending';
 
 function renderHomework() {
-    state = loadState();
-    const container = document.getElementById('homework-list');
-    let items = [...state.homework];
+  state = loadState();
+  let items = [...state.homework];
 
-    // Filter
-    switch (hwFilter) {
-        case 'overdue': items = items.filter(h => !h.completed && daysUntil(h.due) < 0); break;
-        case 'today': items = items.filter(h => !h.completed && daysUntil(h.due) === 0); break;
-        case 'tomorrow': items = items.filter(h => !h.completed && daysUntil(h.due) === 1); break;
-        case 'week': items = items.filter(h => !h.completed && daysUntil(h.due) >= 0 && daysUntil(h.due) <= 7); break;
-        case 'completed': items = items.filter(h => h.completed); break;
-        default: items = items.filter(h => !h.completed);
-    }
+  switch (hwFilter) {
+    case 'overdue': items = items.filter(h => !h.completed && daysUntil(h.due) < 0); break;
+    case 'today': items = items.filter(h => !h.completed && daysUntil(h.due) === 0); break;
+    case 'week': items = items.filter(h => !h.completed && daysUntil(h.due) >= 0 && daysUntil(h.due) <= 7); break;
+    case 'done': items = items.filter(h => h.completed); break;
+    default: items = items.filter(h => !h.completed); break;
+  }
 
-    // Sort by due date
-    items.sort((a, b) => daysUntil(a.due) - daysUntil(b.due));
+  items.sort((a, b) => daysUntil(a.due) - daysUntil(b.due));
 
-    if (items.length === 0) {
-        container.innerHTML = `<p class="empty-state">${hwFilter === 'all' ? 'No pending homework. Nice!' : 'Nothing here.'}</p>`;
-        return;
-    }
+  const el = $('#hw-list');
+  if (!items.length) {
+    el.innerHTML = '<div class="empty">' + (hwFilter === 'pending' ? 'no pending homework' : 'nothing here') + '</div>';
+    return;
+  }
 
-    container.innerHTML = items.map(h => {
-        const u = getUrgency(h.due);
-        const diffLabels = ['', 'Easy', 'Medium', 'Hard', 'Very Hard'];
-        return `<div class="hw-item ${h.completed ? 'completed' : ''}">
-            <div class="hw-checkbox ${h.completed ? 'checked' : ''}" data-id="${h.id}">${h.completed ? '\u2713' : ''}</div>
-            <div class="hw-info">
-                <span class="hw-subject ${getSubjectClass(h.subject)}">${h.subject}</span>
-                <div class="hw-title">${h.title}</div>
-                <div class="hw-meta">${formatDate(h.due)} \u2022 ${diffLabels[h.difficulty]}${h.notes ? ' \u2022 ' + h.notes : ''}</div>
+  el.innerHTML = items.map(h => {
+    const done = h.completed ? ' is-done' : '';
+    return `<div class="hw-item${done}" data-id="${h.id}">
+      <div class="hw-item-top">
+        <div class="hw-item-left">
+          <div class="hw-check${h.completed ? ' checked' : ''}" data-id="${h.id}">${h.completed ? 'x' : ''}</div>
+          <div class="hw-info">
+            <div class="hw-task">${h.subject}: ${h.title}</div>
+            <div class="hw-meta">
+              <span class="tag">${urgencyLabel(h.due)}</span>
+              <span>${fmtDate(h.due)}</span>
+              <span>${DIFF_LABELS[h.difficulty]}</span>
             </div>
-            <span class="hw-urgency ${u.class}">${u.label}</span>
-            <div class="hw-actions">
-                <button class="btn btn-sm btn-ghost hw-edit-btn" data-id="${h.id}">Edit</button>
-                <button class="btn btn-sm btn-ghost hw-delete-btn" data-id="${h.id}" style="color:var(--danger)">Del</button>
-            </div>
-        </div>`;
-    }).join('');
+          </div>
+        </div>
+        <div class="hw-actions">
+          <button class="text-btn hw-edit" data-id="${h.id}">edit</button>
+          <button class="text-btn hw-del" data-id="${h.id}">del</button>
+        </div>
+      </div>
+      ${h.notes ? `<div class="hw-expanded"><div class="hw-notes-text">${h.notes}</div></div>` : ''}
+    </div>`;
+  }).join('');
 
-    // Event listeners
-    container.querySelectorAll('.hw-checkbox').forEach(cb => {
-        cb.addEventListener('click', () => toggleHomework(cb.dataset.id));
-    });
-    container.querySelectorAll('.hw-edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => editHomework(btn.dataset.id));
-    });
-    container.querySelectorAll('.hw-delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => deleteHomework(btn.dataset.id));
-    });
+  // listeners
+  el.querySelectorAll('.hw-check').forEach(c => c.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleHw(c.dataset.id);
+  }));
+  el.querySelectorAll('.hw-edit').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    editHw(b.dataset.id);
+  }));
+  el.querySelectorAll('.hw-del').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    deleteHw(b.dataset.id);
+  }));
+  el.querySelectorAll('.hw-item').forEach(item => {
+    item.addEventListener('click', () => item.classList.toggle('open'));
+  });
 }
 
-document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        hwFilter = btn.dataset.filter;
-        renderHomework();
-    });
-});
-
-document.getElementById('add-homework-btn').addEventListener('click', () => {
-    document.getElementById('homework-modal-title').textContent = 'Add Homework';
-    document.getElementById('homework-form').reset();
-    document.getElementById('hw-edit-id').value = '';
-    document.getElementById('hw-due').valueAsDate = new Date();
-    openModal('homework-modal');
-});
-
-document.getElementById('homework-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const editId = document.getElementById('hw-edit-id').value;
-    const hw = {
-        id: editId || genId(),
-        subject: document.getElementById('hw-subject').value,
-        title: document.getElementById('hw-title').value,
-        due: document.getElementById('hw-due').value,
-        difficulty: parseInt(document.getElementById('hw-difficulty').value),
-        notes: document.getElementById('hw-notes').value,
-        completed: false,
-    };
-
-    state = loadState();
-    if (editId) {
-        const idx = state.homework.findIndex(h => h.id === editId);
-        if (idx !== -1) { hw.completed = state.homework[idx].completed; state.homework[idx] = hw; }
-    } else {
-        state.homework.push(hw);
-    }
-    saveHomework(state.homework);
-    closeModal('homework-modal');
+$$('#hw-filters .pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('#hw-filters .pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    hwFilter = btn.dataset.filter;
     renderHomework();
+  });
 });
 
-function toggleHomework(id) {
-    state = loadState();
-    const hw = state.homework.find(h => h.id === id);
-    if (hw) { hw.completed = !hw.completed; saveHomework(state.homework); renderHomework(); }
+$('#add-hw-btn').addEventListener('click', () => {
+  $('#hw-modal-title').textContent = 'add homework';
+  $('#hw-form').reset();
+  $('#hw-edit-id').value = '';
+  $('#hw-due').valueAsDate = new Date();
+  $('#hw-diff').value = 2;
+  updateDiffLabel();
+  openModal('hw-modal');
+});
+
+$('#hw-diff').addEventListener('input', updateDiffLabel);
+function updateDiffLabel() {
+  $('#hw-diff-label').textContent = DIFF_LABELS[$('#hw-diff').value];
 }
 
-function editHomework(id) {
-    state = loadState();
-    const hw = state.homework.find(h => h.id === id);
-    if (!hw) return;
-    document.getElementById('homework-modal-title').textContent = 'Edit Homework';
-    document.getElementById('hw-edit-id').value = hw.id;
-    document.getElementById('hw-subject').value = hw.subject;
-    document.getElementById('hw-title').value = hw.title;
-    document.getElementById('hw-due').value = hw.due;
-    document.getElementById('hw-difficulty').value = hw.difficulty;
-    document.getElementById('hw-notes').value = hw.notes || '';
-    openModal('homework-modal');
+$('#hw-form').addEventListener('submit', e => {
+  e.preventDefault();
+  state = loadState();
+  const editId = $('#hw-edit-id').value;
+  const hw = {
+    id: editId || genId(),
+    subject: $('#hw-subject').value,
+    title: $('#hw-title').value,
+    due: $('#hw-due').value,
+    difficulty: parseInt($('#hw-diff').value),
+    notes: $('#hw-notes').value,
+    completed: false,
+  };
+  if (editId) {
+    const idx = state.homework.findIndex(h => h.id === editId);
+    if (idx !== -1) { hw.completed = state.homework[idx].completed; state.homework[idx] = hw; }
+  } else {
+    state.homework.push(hw);
+  }
+  save('gy_homework', state.homework);
+  closeModal('hw-modal');
+  renderHomework();
+});
+
+function toggleHw(id) {
+  state = loadState();
+  const h = state.homework.find(x => x.id === id);
+  if (h) { h.completed = !h.completed; save('gy_homework', state.homework); renderHomework(); }
 }
 
-function deleteHomework(id) {
-    if (!confirm('Delete this homework?')) return;
-    state = loadState();
-    state.homework = state.homework.filter(h => h.id !== id);
-    saveHomework(state.homework);
-    renderHomework();
+function editHw(id) {
+  state = loadState();
+  const h = state.homework.find(x => x.id === id);
+  if (!h) return;
+  $('#hw-modal-title').textContent = 'edit homework';
+  $('#hw-edit-id').value = h.id;
+  $('#hw-subject').value = h.subject;
+  $('#hw-title').value = h.title;
+  $('#hw-due').value = h.due;
+  $('#hw-diff').value = h.difficulty;
+  $('#hw-notes').value = h.notes || '';
+  updateDiffLabel();
+  openModal('hw-modal');
 }
 
-// ========== Events ==========
-let calendarDate = new Date();
+function deleteHw(id) {
+  if (!confirm('delete this homework?')) return;
+  state = loadState();
+  state.homework = state.homework.filter(h => h.id !== id);
+  save('gy_homework', state.homework);
+  renderHomework();
+}
+
+// ========================
+// events page
+// ========================
+let calDate = new Date();
 
 function renderEvents() {
-    state = loadState();
-    renderCalendar();
-    renderEventsList();
+  state = loadState();
+  renderCalendar();
+  renderEventsList();
 }
 
 function renderCalendar() {
-    const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
-    document.getElementById('calendar-month-year').textContent =
-        new Date(year, month).toLocaleDateString('en-SG', { month: 'long', year: 'numeric' });
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  $('#cal-month-label').textContent = new Date(y, m).toLocaleDateString('en-SG', { month: 'long', year: 'numeric' }).toLowerCase();
 
-    const grid = document.getElementById('calendar-grid');
-    const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    let html = dayHeaders.map(d => `<div class="calendar-day-header">${d}</div>`).join('');
+  const grid = $('#cal-grid');
+  let html = ['mon','tue','wed','thu','fri','sat','sun'].map(d => `<div class="cal-head">${d}</div>`).join('');
 
-    const firstDay = new Date(year, month, 1);
-    let startDay = firstDay.getDay() - 1;
-    if (startDay < 0) startDay = 6;
+  const first = new Date(y, m, 1);
+  let start = first.getDay() - 1; if (start < 0) start = 6;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const prevDays = new Date(y, m, 0).getDate();
+  const today = new Date();
 
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrev = new Date(year, month, 0).getDate();
-    const today = new Date();
+  for (let i = start - 1; i >= 0; i--) {
+    html += `<div class="cal-day other">${prevDays - i}</div>`;
+  }
 
-    // Previous month padding
-    for (let i = startDay - 1; i >= 0; i--) {
-        html += `<div class="calendar-day other-month"><div class="day-number">${daysInPrev - i}</div></div>`;
-    }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = today.getFullYear() === y && today.getMonth() === m && today.getDate() === d;
+    const dayEvts = state.events.filter(e => e.date === ds);
+    const dots = dayEvts.length ? `<div class="evt-dots">${dayEvts.map(() => '<span class="evt-dot"></span>').join('')}</div>` : '';
+    html += `<div class="cal-day${isToday ? ' today' : ''}">${d}${dots}</div>`;
+  }
 
-    // Current month
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
-        const dayEvents = state.events.filter(e => e.date === dateStr);
-        const dots = dayEvents.map(e => `<span class="event-dot ${e.type}"></span>`).join('');
-        html += `<div class="calendar-day ${isToday ? 'today' : ''}">
-            <div class="day-number">${d}</div>${dots}
-        </div>`;
-    }
+  const total = start + daysInMonth;
+  const rem = (7 - (total % 7)) % 7;
+  for (let i = 1; i <= rem; i++) {
+    html += `<div class="cal-day other">${i}</div>`;
+  }
 
-    // Next month padding
-    const totalCells = startDay + daysInMonth;
-    const remaining = (7 - (totalCells % 7)) % 7;
-    for (let i = 1; i <= remaining; i++) {
-        html += `<div class="calendar-day other-month"><div class="day-number">${i}</div></div>`;
-    }
-
-    grid.innerHTML = html;
+  grid.innerHTML = html;
 }
 
 function renderEventsList() {
-    const container = document.getElementById('events-list-items');
-    const upcoming = state.events
-        .filter(e => daysUntil(e.date) >= -1)
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const el = $('#evt-list');
+  const upcoming = state.events.filter(e => daysUntil(e.date) >= -1)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    if (upcoming.length === 0) {
-        container.innerHTML = '<p class="empty-state">No events added yet.</p>';
-        return;
-    }
+  if (!upcoming.length) {
+    el.innerHTML = '<div class="empty">no events added yet</div>';
+    return;
+  }
 
-    container.innerHTML = upcoming.map(e => `
-        <div class="event-item">
-            <span class="event-type-badge badge-${e.type}">${e.type}</span>
-            <div class="event-info">
-                <div class="event-title">${e.title}</div>
-                <div class="event-date">${formatDate(e.date)}${e.notes ? ' \u2022 ' + e.notes : ''}</div>
-            </div>
-            <div class="hw-actions">
-                <button class="btn btn-sm btn-ghost evt-edit-btn" data-id="${e.id}">Edit</button>
-                <button class="btn btn-sm btn-ghost evt-delete-btn" data-id="${e.id}" style="color:var(--danger)">Del</button>
-            </div>
-        </div>
-    `).join('');
+  el.innerHTML = upcoming.map(e => `
+    <div class="evt-item">
+      <div class="evt-item-left">
+        <span class="evt-date-col">${fmtDate(e.date)}</span>
+        <span>${e.title}</span>
+        <span class="tag">${e.type}</span>
+      </div>
+      <div class="evt-actions">
+        <button class="text-btn evt-edit" data-id="${e.id}">edit</button>
+        <button class="text-btn evt-del" data-id="${e.id}">del</button>
+      </div>
+    </div>
+  `).join('');
 
-    container.querySelectorAll('.evt-edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => editEvent(btn.dataset.id));
-    });
-    container.querySelectorAll('.evt-delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => deleteEvent(btn.dataset.id));
-    });
+  el.querySelectorAll('.evt-edit').forEach(b => b.addEventListener('click', () => editEvt(b.dataset.id)));
+  el.querySelectorAll('.evt-del').forEach(b => b.addEventListener('click', () => deleteEvt(b.dataset.id)));
 }
 
-document.getElementById('prev-month').addEventListener('click', () => {
-    calendarDate.setMonth(calendarDate.getMonth() - 1);
-    renderCalendar();
-});
-document.getElementById('next-month').addEventListener('click', () => {
-    calendarDate.setMonth(calendarDate.getMonth() + 1);
-    renderCalendar();
-});
+$('#prev-month').addEventListener('click', () => { calDate.setMonth(calDate.getMonth() - 1); renderCalendar(); });
+$('#next-month').addEventListener('click', () => { calDate.setMonth(calDate.getMonth() + 1); renderCalendar(); });
 
-document.getElementById('add-event-btn').addEventListener('click', () => {
-    document.getElementById('event-modal-title').textContent = 'Add Event';
-    document.getElementById('event-form').reset();
-    document.getElementById('evt-edit-id').value = '';
-    document.getElementById('evt-date').valueAsDate = new Date();
-    openModal('event-modal');
+$('#add-evt-btn').addEventListener('click', () => {
+  $('#evt-modal-title').textContent = 'add event';
+  $('#evt-form').reset();
+  $('#evt-edit-id').value = '';
+  $('#evt-date').valueAsDate = new Date();
+  openModal('evt-modal');
 });
 
-document.getElementById('event-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const editId = document.getElementById('evt-edit-id').value;
-    const evt = {
-        id: editId || genId(),
-        title: document.getElementById('evt-title').value,
-        date: document.getElementById('evt-date').value,
-        type: document.getElementById('evt-type').value,
-        notes: document.getElementById('evt-notes').value,
-    };
-
-    state = loadState();
-    if (editId) {
-        const idx = state.events.findIndex(e => e.id === editId);
-        if (idx !== -1) state.events[idx] = evt;
-    } else {
-        state.events.push(evt);
-    }
-    saveEvents(state.events);
-    closeModal('event-modal');
-    renderEvents();
+$('#evt-form').addEventListener('submit', e => {
+  e.preventDefault();
+  state = loadState();
+  const editId = $('#evt-edit-id').value;
+  const evt = {
+    id: editId || genId(),
+    title: $('#evt-title').value.toLowerCase(),
+    date: $('#evt-date').value,
+    type: $('#evt-type').value,
+    notes: $('#evt-notes').value,
+  };
+  if (editId) {
+    const idx = state.events.findIndex(x => x.id === editId);
+    if (idx !== -1) state.events[idx] = evt;
+  } else {
+    state.events.push(evt);
+  }
+  save('gy_events', state.events);
+  closeModal('evt-modal');
+  renderEvents();
 });
 
-function editEvent(id) {
-    state = loadState();
-    const evt = state.events.find(e => e.id === id);
-    if (!evt) return;
-    document.getElementById('event-modal-title').textContent = 'Edit Event';
-    document.getElementById('evt-edit-id').value = evt.id;
-    document.getElementById('evt-title').value = evt.title;
-    document.getElementById('evt-date').value = evt.date;
-    document.getElementById('evt-type').value = evt.type;
-    document.getElementById('evt-notes').value = evt.notes || '';
-    openModal('event-modal');
+function editEvt(id) {
+  state = loadState();
+  const e = state.events.find(x => x.id === id);
+  if (!e) return;
+  $('#evt-modal-title').textContent = 'edit event';
+  $('#evt-edit-id').value = e.id;
+  $('#evt-title').value = e.title;
+  $('#evt-date').value = e.date;
+  $('#evt-type').value = e.type;
+  $('#evt-notes').value = e.notes || '';
+  openModal('evt-modal');
 }
 
-function deleteEvent(id) {
-    if (!confirm('Delete this event?')) return;
-    state = loadState();
-    state.events = state.events.filter(e => e.id !== id);
-    saveEvents(state.events);
-    renderEvents();
+function deleteEvt(id) {
+  if (!confirm('delete this event?')) return;
+  state = loadState();
+  state.events = state.events.filter(x => x.id !== id);
+  save('gy_events', state.events);
+  renderEvents();
 }
 
-// ========== AI Advisor ==========
-document.getElementById('get-ai-advice').addEventListener('click', () => {
-    state = loadState();
-    const pending = state.homework.filter(h => !h.completed);
+// ========================
+// plan (ai advisor)
+// ========================
+$('#gen-plan-btn').addEventListener('click', () => {
+  state = loadState();
+  const pending = state.homework.filter(h => !h.completed);
+  const out = $('#plan-output');
 
-    if (pending.length === 0) {
-        const output = document.getElementById('ai-advice-output');
-        output.style.display = 'block';
-        document.getElementById('ai-advice-content').innerHTML =
-            '<p class="empty-state">No pending homework to plan! You\'re all caught up.</p>';
-        return;
-    }
+  if (!pending.length) {
+    out.innerHTML = '<div class="empty">no pending homework to plan. you\'re all caught up.</div>';
+    return;
+  }
 
-    // Simple AI scoring algorithm
-    const scored = pending.map(h => {
-        const days = daysUntil(h.due);
-        let score = 0;
-        let reasons = [];
+  const scored = pending.map(h => {
+    const days = daysUntil(h.due);
+    let score = 0;
+    const reasons = [];
 
-        // Urgency (most important factor)
-        if (days < 0) {
-            score += 100;
-            reasons.push('OVERDUE - do this immediately');
-        } else if (days === 0) {
-            score += 90;
-            reasons.push('Due today - highest priority');
-        } else if (days === 1) {
-            score += 70;
-            reasons.push('Due tomorrow - very urgent');
-        } else if (days <= 3) {
-            score += 50;
-            reasons.push('Due in ' + days + ' days - start soon');
-        } else if (days <= 7) {
-            score += 25;
-            reasons.push('Due this week');
-        } else {
-            score += 10;
-            reasons.push('Due in ' + days + ' days');
-        }
+    // urgency
+    if (days < 0)       { score += 100; reasons.push('overdue — do this immediately'); }
+    else if (days === 0) { score += 90;  reasons.push('due today — highest priority'); }
+    else if (days === 1) { score += 70;  reasons.push('due tomorrow — very urgent'); }
+    else if (days <= 3)  { score += 50;  reasons.push('due in ' + days + ' days — start soon'); }
+    else if (days <= 7)  { score += 25;  reasons.push('due this week'); }
+    else                 { score += 10;  reasons.push('due in ' + days + ' days'); }
 
-        // Difficulty factor - harder tasks should be started earlier
-        const diffWeight = h.difficulty * 8;
-        score += diffWeight;
-        if (h.difficulty >= 3) {
-            reasons.push('High difficulty - needs more time');
-        }
+    // difficulty
+    score += h.difficulty * 8;
+    if (h.difficulty >= 3) reasons.push('high difficulty — needs more time');
 
-        // Subject weighting for examinable subjects
-        const coreSubjects = ['Mathematics', 'E Math', 'A Math', 'English', 'Science',
-            'Physics', 'Chemistry', 'Biology', 'Mother Tongue', 'Chinese', 'Malay', 'Tamil'];
-        if (coreSubjects.includes(h.subject)) {
-            score += 5;
-            reasons.push('Core/examinable subject');
-        }
+    // core subjects
+    const core = ['math','english','science','physics','chemistry','biology','a math','e math','mtl','chinese','malay','tamil'];
+    if (core.includes(h.subject)) { score += 5; reasons.push('core subject'); }
 
-        // Time efficiency: if two things are due the same day, do the easier one first
-        // (quick wins strategy)
-        if (days <= 1 && h.difficulty <= 2) {
-            score += 15;
-            reasons.push('Quick win - finish this first');
-        }
+    // quick win
+    if (days <= 1 && h.difficulty <= 2) { score += 15; reasons.push('quick win — finish this first'); }
 
-        const timeEstimate = ['', '~15 min', '~30 min', '~1 hour', '~2 hours'];
+    return { ...h, score, reasons };
+  });
 
-        return { ...h, score, reasons, timeEstimate: timeEstimate[h.difficulty] };
-    });
+  scored.sort((a, b) => b.score - a.score);
 
-    scored.sort((a, b) => b.score - a.score);
+  const total = scored.reduce((s, h) => s + DIFF_MINS[h.difficulty], 0);
+  const hrs = Math.floor(total / 60);
+  const mins = total % 60;
 
-    const output = document.getElementById('ai-advice-output');
-    output.style.display = 'block';
+  let html = `<div class="plan-summary">${scored.length} tasks pending. estimated total: ${hrs > 0 ? hrs + 'h ' : ''}${mins}m</div>`;
 
-    const totalTime = scored.reduce((sum, h) => {
-        const mins = [0, 15, 30, 60, 120];
-        return sum + mins[h.difficulty];
-    }, 0);
-    const hours = Math.floor(totalTime / 60);
-    const mins = totalTime % 60;
+  html += scored.map((h, i) => `
+    <div class="plan-item">
+      <div class="plan-num">${i + 1}</div>
+      <div class="plan-detail">
+        <div class="plan-task">${h.subject}: ${h.title}</div>
+        <div class="plan-reason">${h.reasons.join(' / ')} / est: ${DIFF_LABELS[h.difficulty]}</div>
+      </div>
+    </div>
+  `).join('');
 
-    document.getElementById('ai-advice-content').innerHTML = `
-        <p style="margin-bottom:16px; color:var(--text-secondary); font-size:0.9rem;">
-            You have <strong>${scored.length} tasks</strong> pending, estimated total:
-            <strong>${hours > 0 ? hours + 'h ' : ''}${mins}min</strong>.
-            Here's the recommended order:
-        </p>
-        ${scored.map((h, i) => `
-            <div class="ai-task">
-                <div class="ai-task-number">${i + 1}</div>
-                <div class="ai-task-info">
-                    <div class="ai-task-title">${h.subject}: ${h.title}</div>
-                    <div class="ai-task-reason">${h.reasons.join(' \u2022 ')}</div>
-                    <div class="ai-task-meta">Due: ${formatDate(h.due)} \u2022 Est: ${h.timeEstimate}</div>
-                </div>
-            </div>
-        `).join('')}
-        <p style="margin-top:16px; padding:12px; background:var(--primary-light); border-radius:8px; font-size:0.85rem; color:var(--primary-dark);">
-            <strong>Tip:</strong> Start with task #1 and work your way down. Take a 5-minute break between tasks.
-            If you're feeling stuck, switch to an easier task and come back later.
-        </p>
-    `;
+  html += '<div class="plan-tip">start with #1 and work down. take a 5-minute break between tasks. if you get stuck, switch to an easier one and come back.</div>';
+
+  out.innerHTML = html;
 });
 
-// ========== Modals ==========
-function openModal(id) { document.getElementById(id).classList.add('active'); }
-function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+// ========================
+// modals
+// ========================
+function openModal(id) { $('#' + id).classList.add('active'); }
+function closeModal(id) { $('#' + id).classList.remove('active'); }
 
-document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
-    btn.addEventListener('click', () => {
-        btn.closest('.modal').classList.remove('active');
-    });
+$$('.modal-x, .modal-cancel').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.modal').classList.remove('active'));
+});
+$$('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
 });
 
-document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', e => {
-        if (e.target === modal) modal.classList.remove('active');
-    });
-});
-
-// ========== Auto-refresh ==========
-setInterval(() => {
-    if (document.querySelector('#page-dashboard.active')) refreshDashboard();
-}, 30000);
-
-// ========== Init ==========
-refreshDashboard();
+// ========================
+// init
+// ========================
+function init() {
+  tickClock();
+  setInterval(tickClock, 10000);
+  populateClassSelect();
+  $('#class-select').value = state.selectedClass;
+  $('#week-select').value = state.weekType;
+  renderNow();
+  // auto refresh now page
+  setInterval(() => {
+    if ($('#page-now.active')) renderNow();
+  }, 30000);
+}
